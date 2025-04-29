@@ -38,7 +38,6 @@ def extract_columns_from_sql(sql_query: str):
                 break
     return columns
 
-
 # Initialize session state
 if "agent" not in st.session_state:
     st.session_state.agent = build_agent()
@@ -135,7 +134,12 @@ if prompt := st.chat_input("Ask me about your data…"):
                 st.session_state.last_df = None
                 st.session_state.last_sql = None
 
-            response_container.markdown(answer)
+            if st.session_state.last_df is not None and not st.session_state.last_df.empty:
+                st.dataframe(st.session_state.last_df, use_container_width=True)
+            else:
+                # Otherwise fallback to natural language answer
+                response_container.markdown(answer)
+
 
     st.session_state.messages.append({"role": "assistant", "content": answer})
 
