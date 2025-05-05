@@ -21,6 +21,35 @@ logger = getLogger(__name__)
 st.set_page_config(page_title='Chatbot', page_icon='🗄️', layout='wide')
 st.title('Chatbot PoC')
 
+# Sidebar med tutorial
+st.sidebar.title("Hvordan bruke Chatbot PoC")
+st.sidebar.markdown("""
+**1. Spørsmål → SQL**  
+- Chatbotten er **ikke** en generell samtaleagent.  
+- Skriv kun tekster som kan **oversettes til en SQL-spørring**.  
+- Unngå åpne, ustrukturerte spørsmål (f.eks. “Fortell meg om…”).
+
+**2. Tilgjengelige tabeller**  
+Se hele schemas og tabeller her:  
+[Olist Brazilian E-Commerce Dataset](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce)  
+- `customers`  
+- `orders`  
+- `order_items`  
+- `products`  
+- `sellers`  
+- …og flere.
+
+**3. Tips for bedre resultater**  
+- Vær presis: “Vis antall ordrer per måned for 2020”  
+- Inkluder gjerne kolonnenavn fra tabellen i spørsmålet.  
+- Store datamengder kan ta noe tid å kjøre — vær tålmodig.  
+
+**4. Feilmeldinger & debug**  
+- Hvis du får SQL-parsing-feil, sjekk at spørsmålet ditt dekker kolonner og tabeller riktig.  
+- Bruk “🔍 Intermediate Steps” for å se hvilke verktøy (og SQL) som kjøres.  
+""")
+
+
 # Initialize session state
 if 'agent' not in st.session_state:
     logger.info('Initialiserer agent i session_state')
