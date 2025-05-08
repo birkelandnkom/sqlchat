@@ -7,7 +7,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-
 def build_agent() -> AgentExecutor:
     """Bygger og returnerer en LangChain-agent for SQL-spørringer."""
     logger.info('Bygger agent...')
@@ -15,9 +14,9 @@ def build_agent() -> AgentExecutor:
         raw_agent = create_sql_agent(
         llm=llm,
         db=db,
-        agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+        agent_type="zero-shot-react-description",
         verbose=False,
-        top_k=20,
+        top_k=1000,
         )
         agent_executor = AgentExecutor.from_agent_and_tools(
             agent=raw_agent.agent,
@@ -29,5 +28,5 @@ def build_agent() -> AgentExecutor:
         logger.info('Agent klar')
         return agent_executor
     except Exception as e:
-        logger.exception("Klarte ikke bygge agen %s", e)
+        logger.exception("Klarte ikke bygge agent %s", e)
         raise e

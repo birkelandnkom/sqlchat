@@ -2,3 +2,5 @@ venv
 .env
 .pyc
 test_chatbot.db
+.files
+.chainlit
