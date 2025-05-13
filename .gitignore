@@ -1,5 +1,7 @@
-venv
-.env
 .pyc
 .files
 .chainlit
+__pycache__/
+*.py[cod]
+.env
+venv/

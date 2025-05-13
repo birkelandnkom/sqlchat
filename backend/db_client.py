@@ -8,11 +8,19 @@ try:
     db = SQLDatabase.from_uri(
     DATABASE_URI,
     include_tables=[
-        'customers', 'geolocation', 'order_items',
-        'order_payments', 'order_reviews', 'orders',
-        'product_category_name_translation', 'products', 'sellers'
-    ]
-)
+        'employees',
+        'customers',
+        'invoices',
+        'invoice_items',
+        'artists',
+        'albums',
+        'media_types',
+        'genres',
+        'tracks',
+        'playlists',
+        'playlist_track'
+        ]
+    )
     logger.info('Database koblet til: %s', DATABASE_URI)
 except Exception as e:
     logger.exception("Database tilkobling feilet: %s", e)
