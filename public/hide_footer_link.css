@@ -2,7 +2,6 @@
     visibility: hidden;
 }
 
-/* Target the specific image using its src attribute */
 img[src="/public/logo_dark.png"] {
     width: auto !important;
     height: auto !important;
@@ -10,7 +9,6 @@ img[src="/public/logo_dark.png"] {
     max-width: 400px !important;
     max-height: 400px !important;
 
-    /* 'contain' skalerer bildet ned for å passe innenfor elementet */
     object-fit: contain !important;
 
     margin: auto !important;

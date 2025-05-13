@@ -4,8 +4,7 @@ from pathlib import Path
 import logging 
 
 logger = logging.getLogger(__name__) 
-env_path = Path(__file__).parent / '.env'
-load_dotenv(dotenv_path=env_path, override=False)
+load_dotenv(override=True)
 
 
 AZURE_OPENAI_API_KEY = os.getenv('AZURE_OPENAI_API_KEY')
