@@ -4,22 +4,16 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+TABLES = [
+    'employees', 'customers', 'invoices', 'invoice_items',
+    'artists', 'albums', 'media_types', 'genres',
+    'tracks', 'playlists', 'playlist_track'
+]
+
 try:
     db = SQLDatabase.from_uri(
     DATABASE_URI,
-    include_tables=[
-        'employees',
-        'customers',
-        'invoices',
-        'invoice_items',
-        'artists',
-        'albums',
-        'media_types',
-        'genres',
-        'tracks',
-        'playlists',
-        'playlist_track'
-        ]
+    include_tables=TABLES
     )
     logger.info('Database koblet til: %s', DATABASE_URI)
 except Exception as e:
