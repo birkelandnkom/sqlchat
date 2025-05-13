@@ -33,7 +33,7 @@ Dette prosjektet er en PoC Chainlit-applikasjon som demonstrerer en chatbot som 
 
 4.  **Konfigurer .env:**
     ```dotenv
-    LLM_API_KEY="sk-or-v1-..."
+    AZURE_OPENAI_API_KEY="sk-or-v1-..."
 
     # Din Database Connection URI
     # Eksempel for PostgreSQL:
@@ -41,7 +41,10 @@ Dette prosjektet er en PoC Chainlit-applikasjon som demonstrerer en chatbot som 
     ```
 
 5.  **Databaseoppsett:**
-    Sørg for at databasen spesifisert i `DATABASE_URI` eksisterer og er tilgjengelig. Deretter må tilgjengelige tabeller settes i db_client.py
+    Sørg for at databasen spesifisert i `DATABASE_URI` eksisterer og er tilgjengelig. 
+    Deretter må tilgjengelige tabeller settes i db_client.py
+
+    Om ingen database er satt brukes lokal SQLite database. 
 
 Deretter kan applikasjonen starte via 
     ```bash
@@ -56,7 +59,6 @@ Deretter kan applikasjonen starte via
     │   ├── db_client.py        # Init database-koblingen
     │   └── llm_client.py       # Starter LLM-klienten
     ├── .env                    # Lokale miljøvariabler
-    ├── main.py                 # Streamlit for UI og chatlogikk 
     ├── app.py                  # Chainlit for UI og chatlogikk 
     ├── requirements.txt        # Python-avhengigheter
     └── README.md               # Readme
