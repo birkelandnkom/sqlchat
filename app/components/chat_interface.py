@@ -3,38 +3,193 @@ import pandas as pd
 from io import BytesIO
 import copy
 import logging
+import numpy as np # For å sjekke numeriske datatyper
 
 from backend.token_tracer import TokenUsageCallbackHandler
-from services.processing import process_sql_to_dataframe, TOKEN_TO_GCO2E_FACTOR
+# Nå importerer vi også get_visualization_suggestion
+from services.processing import process_sql_to_dataframe, TOKEN_TO_GCO2E_FACTOR, get_visualization_suggestion
 
 logger = logging.getLogger(__name__)
 
 def display_messages():
     """
-    Displays chat messages stored in Streamlit's session state.
+    Viser chatmeldinger lagret i Streamlits session state.
 
-    Iterates through messages and renders them according to their role (user or assistant).
-    Handles the display of message content, Pandas DataFrames, CSV download buttons,
-    and expandable sections for agent's intermediate steps.
+    Itererer gjennom meldinger og renderer dem i henhold til deres rolle (bruker eller assistent).
+    Håndterer visning av meldingsinnhold, Pandas DataFrames, CSV-nedlastingsknapper,
+    og utvidbare seksjoner for agentens mellomliggende trinn.
+    Inkluderer nå en knapp for AI-generert visualisering av DataFrames.
     """
-    for message in st.session_state.get("messages", []):
+    for i, message in enumerate(st.session_state.get("messages", [])):
+        message_id = message.get("id", f"msg_{i}") # Sørg for at vi har en ID
+
         avatar_icon = "🧑‍💻" if message["role"] == "user" else "🤖"
         with st.chat_message(message["role"], avatar=avatar_icon):
             st.markdown(message["content"])
+            
+            current_df = None
             if "dataframe" in message and message["dataframe"] is not None:
                 df_to_display = message["dataframe"]
                 if not isinstance(df_to_display, pd.DataFrame):
                     try:
                         df_to_display = pd.DataFrame(df_to_display)
                     except Exception as e:
-                        logger.error(f"Failed to convert message['dataframe'] to DataFrame: {e}")
+                        logger.error(f"Kunne ikke konvertere message['dataframe'] til DataFrame: {e}")
                         st.error("Kunne ikke vise tabellen.")
-                        continue
+                        df_to_display = None # Sørg for at den er None
                 
-                if not df_to_display.empty:
-                    st.dataframe(df_to_display)
-                elif "dataframe" in message: 
-                    st.caption("Tomt resultatsett.")
+                if df_to_display is not None:
+                    current_df = df_to_display # Lagre referanse til den gyldige DataFrame
+                    if not df_to_display.empty:
+                        st.dataframe(df_to_display)
+                    elif "dataframe" in message: 
+                        st.caption("Tomt resultatsett.")
+            
+            # AI-generert visualisering
+            if current_df is not None and not current_df.empty:
+                if st.button("📊 Generer visualisering med AI", key=f"ai_vis_btn_{message_id}"):
+                    st.session_state.ai_visualize_request = {
+                        "message_id": message_id,
+                        "dataframe_for_ai_processing": current_df.copy() # Send en kopi for AI-prosessering
+                    }
+                    # Nullstill tidligere forslag slik at det ikke vises mens nytt genereres
+                    if "ai_visualization_suggestion" in st.session_state:
+                        del st.session_state.ai_visualization_suggestion
+                    if "last_message_id_for_ai_viz" in st.session_state: # Holder styr på hvilken melding forslaget gjelder
+                         del st.session_state.last_message_id_for_ai_viz
+                    st.rerun()
+
+                if st.session_state.get("ai_visualize_request", {}).get("message_id") == message_id:
+                    with st.expander("AI-generert visualisering", expanded=True):
+                        with st.spinner("🤖 AI tenker ut en passende visualisering..."):
+                            # Hent DataFrame fra forespørselen, ikke fra meldingen (kan være gammel)
+                            df_for_ai = st.session_state.ai_visualize_request["dataframe_for_ai_processing"]
+                            suggestion = get_visualization_suggestion(df_for_ai)
+                            
+                            if suggestion:
+                                # Lagre forslaget og ID-en til meldingen det gjelder
+                                st.session_state.ai_visualization_suggestion = suggestion
+                                st.session_state.last_message_id_for_ai_viz = message_id
+                                del st.session_state.ai_visualize_request 
+                                st.rerun() 
+                            else:
+                                st.error("Beklager, AI-en kunne ikke generere et visualiseringsforslag for disse dataene.")
+                                if "ai_visualize_request" in st.session_state:
+                                    del st.session_state.ai_visualize_request
+
+
+            # Vis lagret AI-visualisering hvis den finnes og gjelder for denne meldingen
+            if "ai_visualization_suggestion" in st.session_state and \
+               message_id == st.session_state.get("last_message_id_for_ai_viz"):
+                
+                suggestion = st.session_state.ai_visualization_suggestion
+                # Bruk DataFrame som ble lagret i meldingen, da dette er den "offisielle" dataen for denne meldingen
+                df_to_plot_original = message.get("dataframe") 
+                
+                if df_to_plot_original is not None and not df_to_plot_original.empty:
+                    # Sørg for at df_to_plot_original er en DataFrame
+                    if not isinstance(df_to_plot_original, pd.DataFrame):
+                        try:
+                            df_to_plot_original = pd.DataFrame(df_to_plot_original)
+                        except: # noqa: E722
+                            st.error("Data for plotting er ikke i gyldig format.")
+                            df_to_plot_original = None
+
+                if df_to_plot_original is not None and not df_to_plot_original.empty:
+                    try:
+                        chart_type = suggestion.get("chart_type")
+                        params = suggestion.get("params", {})
+                        title = suggestion.get("title", "AI-generert graf")
+                        
+                        st.subheader(title)
+
+                        # Bruk en kopi av den originale DataFrame for plotting for å unngå sideeffekter
+                        plot_data_source = df_to_plot_original.copy()
+
+                        x_col_name = params.get("x") # Kan være None hvis LLM vil bruke indeksen
+                        y_col_names = params.get("y")
+                        
+                        if y_col_names and not isinstance(y_col_names, list):
+                            y_col_names = [y_col_names]
+                        
+                        # Valider at foreslåtte kolonner eksisterer
+                        valid_plot = True
+                        if x_col_name and x_col_name not in plot_data_source.columns:
+                            st.warning(f"AI foreslo x-kolonnen '{x_col_name}', som ikke finnes. Tilgjengelige: {', '.join(plot_data_source.columns)}. Prøver å bruke indeksen.")
+                            x_col_name = None # Fallback til å bruke indeksen
+                        
+                        if y_col_names:
+                            for y_col_check in y_col_names:
+                                if y_col_check not in plot_data_source.columns:
+                                    st.error(f"AI foreslo y-kolonnen '{y_col_check}', som ikke finnes. Tilgjengelige: {', '.join(plot_data_source.columns)}.")
+                                    valid_plot = False
+                                    break
+                        elif chart_type not in ["map"]: # y er vanligvis påkrevd for de fleste diagrammer unntatt kart
+                            # Prøv å velge alle numeriske kolonner hvis y ikke er spesifisert
+                            numeric_cols = plot_data_source.select_dtypes(include=np.number).columns.tolist()
+                            if numeric_cols:
+                                y_col_names = numeric_cols
+                                st.info(f"AI spesifiserte ikke y-kolonne(r). Bruker alle numeriske kolonner: {', '.join(y_col_names)}")
+                            else:
+                                st.error("AI spesifiserte ikke y-kolonne(r), og ingen numeriske kolonner ble funnet for automatisk valg.")
+                                valid_plot = False
+                        
+                        if not valid_plot:
+                            # Nullstill forslaget hvis det er ugyldig, for å unngå å prøve på nytt
+                            if "ai_visualization_suggestion" in st.session_state:
+                                del st.session_state.ai_visualization_suggestion
+                            if "last_message_id_for_ai_viz" in st.session_state:
+                                del st.session_state.last_message_id_for_ai_viz
+                            # Gå ut her for å unngå å prøve å plotte
+                            return # Eller continue til neste melding hvis dette er i en løkke
+
+                        # Kartlegging til Streamlit-funksjoner
+                        if chart_type == "bar_chart":
+                            st.bar_chart(plot_data_source, x=x_col_name, y=y_col_names)
+                        elif chart_type == "line_chart":
+                            st.line_chart(plot_data_source, x=x_col_name, y=y_col_names)
+                        elif chart_type == "scatter_chart":
+                            size_col = params.get("size")
+                            color_col = params.get("color")
+                            
+                            if size_col and size_col not in plot_data_source.columns:
+                                st.warning(f"AI foreslo 'size'-kolonnen '{size_col}', som ikke finnes. Fortsetter uten 'size'.")
+                                size_col = None
+                            if color_col and color_col not in plot_data_source.columns:
+                                st.warning(f"AI foreslo 'color'-kolonnen '{color_col}', som ikke finnes. Fortsetter uten 'color'.")
+                                color_col = None
+                            
+                            # Scatter chart tar vanligvis én y-kolonne. Hvis y_col_names er en liste, bruk den første.
+                            single_y_for_scatter = y_col_names[0] if y_col_names else None
+                            if x_col_name and not single_y_for_scatter: # Trenger minst x og y
+                                st.error("For punktdiagram må både x- og y-kolonne være spesifisert av AI.")
+                            elif x_col_name or single_y_for_scatter : # En av dem må være der
+                                st.scatter_chart(plot_data_source, x=x_col_name, y=single_y_for_scatter, size=size_col, color=color_col)
+                            else:
+                                st.error("Kunne ikke lage punktdiagram, mangler x- eller y-kolonne.")
+
+
+                        elif chart_type == "area_chart":
+                            st.area_chart(plot_data_source, x=x_col_name, y=y_col_names)
+                        elif chart_type == "map":
+                            lat_col = params.get('lat')
+                            lon_col = params.get('lon')
+                            if lat_col and lon_col and lat_col in plot_data_source.columns and lon_col in plot_data_source.columns:
+                                st.map(plot_data_source, latitude=lat_col, longitude=lon_col)
+                            else:
+                                st.error("Kunne ikke lage kart. AI må spesifisere gyldige 'lat'- og 'lon'-kolonner som finnes i dataene.")
+                        else:
+                            st.warning(f"Ukjent eller ustøttet graf-type fra AI: {chart_type}")
+                        
+                    except Exception as e:
+                        logger.error(f"Kunne ikke rendre AI-foreslått graf: {e}", exc_info=True)
+                        st.error(f"En feil oppstod under generering av AI-grafen: {e}")
+                        # Nullstill forslaget ved feil for å unngå gjentatte feil på reruns
+                        if "ai_visualization_suggestion" in st.session_state:
+                            del st.session_state.ai_visualization_suggestion
+                        if "last_message_id_for_ai_viz" in st.session_state:
+                            del st.session_state.last_message_id_for_ai_viz
+
 
             if "csv_data" in message and message["csv_data"] is not None:
                 st.download_button(
@@ -42,7 +197,7 @@ def display_messages():
                     data=message["csv_data"],
                     file_name="query_result.csv",
                     mime="text/csv",
-                    key=f"download_{message.get('id', message['content'][:10])}"
+                    key=f"download_{message_id}"
                 )
             if "agent_steps" in message and message["agent_steps"]:
                 with st.expander("Vis agentens tankeprosess og SQL"):
@@ -54,17 +209,7 @@ def display_messages():
 
 def handle_user_input(prompt: str):
     """
-    Manages new user input from the chat interface.
-
-    Adds the user's message to the session state.
-    Prepares a placeholder for the assistant's upcoming response.
-    Stores the prompt and a unique ID for the assistant's message in session state
-    to facilitate asynchronous-like processing.
-    Triggers a Streamlit rerun to update the UI immediately with the user's message
-    and the assistant's placeholder (which can show a spinner).
-
-    Args:
-        prompt (str): The text input provided by the user.
+    Håndterer brukerens input, initierer plassholder for agentinteraksjon, og oppdaterer session state.
     """
     if not st.session_state.agent:
         st.error("Chatbot agent er ikke lastet. Prøv å laste siden på nytt.")
@@ -87,20 +232,22 @@ def handle_user_input(prompt: str):
     
     st.session_state.processing_prompt = prompt 
     st.session_state.current_asst_msg_id = asst_msg_id
+    
+    # Nullstill tidligere AI-visualiseringsstatus når en ny melding sendes
+    if "ai_visualize_request" in st.session_state:
+        del st.session_state.ai_visualize_request
+    if "ai_visualization_suggestion" in st.session_state:
+        del st.session_state.ai_visualization_suggestion
+    if "last_message_id_for_ai_viz" in st.session_state:
+        del st.session_state.last_message_id_for_ai_viz
+
     st.rerun()
 
 
 def process_agent_interaction():
     """
-    Handles the core logic of interacting with the LangChain agent and processing its response.
-
-    This function is intended to be called after `handle_user_input` has triggered a rerun
-    and the UI shows a placeholder for the assistant's message.
-    It retrieves the stored prompt and assistant message ID from session state.
-    Invokes the agent, processes SQL queries if generated, calculates token usage and gCO2e,
-    and formats the final response including any data or error messages.
-    Updates the assistant's placeholder message in session state with the complete response.
-    Triggers a final Streamlit rerun to display the updated message and sidebar metrics.
+    Prosesserer agentinteraksjonen ved å bruke den lagrede prompten og oppdaterer assistentens melding.
+    Denne funksjonen kalles etter at UI-en har kjørt på nytt for å vise "behandler"-tilstanden.
     """
     prompt = st.session_state.pop("processing_prompt", None)
     asst_msg_id = st.session_state.pop("current_asst_msg_id", None)
@@ -200,5 +347,9 @@ def process_agent_interaction():
             message_to_update["agent_steps"] = agent_steps_for_display
         else: 
             message_to_update.pop("agent_steps", None)
+        
+        if final_df is not None and not final_df.empty: # Only set if there's a df to potentially visualize
+            st.session_state.last_message_id_for_ai_viz = message_to_update.get("id")
+
 
         st.rerun()

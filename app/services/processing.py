@@ -2,9 +2,12 @@ import streamlit as st
 import pandas as pd
 import ast
 import logging
+import json # For parsing LLM response
 
 from backend.agent_builder import build_agent
 from backend.db_client import db
+# Vi trenger LLM-klienten direkte for å lage et kall utenfor agent-loopen
+from backend.llm_client import llm as llm_instance # Gi den et alias for å unngå navnekonflikt hvis brukt i samme fil
 
 logger = logging.getLogger(__name__)
 
@@ -116,3 +119,117 @@ def process_sql_to_dataframe(sql_query: str, original_agent_text: str) -> tuple[
         final_output_text = f"Beklager, en feil oppstod under kjøring av SQL eller behandling av resultat: {db_err}"
         df = None
     return final_output_text, df
+
+def get_visualization_suggestion(df: pd.DataFrame) -> dict | None:
+    """
+    Ber en LLM om å foreslå en passende Streamlit-visualisering for den gitte DataFrame.
+
+    Args:
+        df (pd.DataFrame): DataFrame som skal visualiseres.
+
+    Returns:
+        dict | None: En dictionary med forslag til 'chart_type' og 'params' hvis vellykket,
+                      ellers None. Format:
+                      {
+                          "chart_type": "bar_chart",
+                          "params": {"x": "col_x", "y": "col_y"},
+                          "title": "Foreslått tittel"
+                      }
+    """
+    if df is None or df.empty:
+        return None
+
+    # Lag en strengrepresentasjon av DataFrame-skjema og hode
+    # df.info() går til stdout, så vi må fange det eller bygge manuelt
+    schema_parts = ["Kolonnenavn (Datatype):"]
+    for col, dtype in df.dtypes.items():
+        schema_parts.append(f"- {col} ({dtype})")
+    schema_str = "\n".join(schema_parts)
+    
+    # Begrens dataeksempel for å unngå for store prompts
+    data_sample_str = df.head(3).to_string()
+
+    # Definer tilgjengelige Streamlit-graf-funksjoner vi vil at LLM skal vurdere
+    # Vi kan utvide denne listen senere
+    available_charts = """
+    - 'bar_chart': For søylediagram. Bruk st.bar_chart(data=df, x='kol_x', y='kol_y'). Hvis y er en liste med kolonner, lages grupperte søyler. Hvis x ikke er satt, brukes indeksen.
+    - 'line_chart': For linjediagram. Bruk st.line_chart(data=df, x='kol_x', y='kol_y'). Hvis y er en liste med kolonner, lages flere linjer. Hvis x ikke er satt, brukes indeksen.
+    - 'scatter_chart': For punktdiagram. Bruk st.scatter_chart(data=df, x='kol_x', y='kol_y', size='kol_size', color='kol_color'). 'size' og 'color' er valgfrie.
+    - 'area_chart': For arealdiagram. Bruk st.area_chart(data=df, x='kol_x', y='kol_y').
+    - 'map': For kartplot (hvis data inneholder lat/lon kolonner). Bruk st.map(data=df, lat='lat_kol', lon='lon_kol').
+    """
+    # TODO: Vurder å legge til st.pyplot for mer komplekse, men da må LLM generere Python-kode for Matplotlib.
+    # TODO: Vurder st.altair_chart for deklarative grafer.
+
+    prompt = f"""
+    Du er en ekspert på datavisualisering. Gitt følgende Pandas DataFrame-skjema og et dataeksempel,
+    foreslå den mest passende Streamlit-graf-typen og de nødvendige parameterne for å visualisere dataene.
+    Fokuser på å lage en meningsfull og lettfattelig visualisering.
+
+    Tilgjengelige Streamlit graf-funksjoner og deres typiske bruk:
+    {available_charts}
+
+    DataFrame Skjema:
+    {schema_str}
+
+    Dataeksempel (de første 3 radene):
+    {data_sample_str}
+
+    Basert på dette, returner et JSON-objekt med følgende struktur:
+    {{
+      "chart_type": "navn_på_streamlit_funksjon_uten_st_prefiks", // f.eks. "bar_chart", "line_chart"
+      "params": {{ // Nødvendige parametere for den valgte graf-funksjonen
+        "x": "kolonnenavn_for_x_aksen_eller_null", // Sett til null hvis indeksen skal brukes
+        "y": "kolonnenavn_for_y_aksen_eller_liste_med_kolonnenavn_eller_null", // Sett til null hvis alle numeriske kolonner skal brukes
+        // Inkluder andre relevante parametere som 'size', 'color', 'lat', 'lon' basert på chart_type
+      }},
+      "title": "En kort, beskrivende tittel for grafen" // Valgfritt, men anbefalt
+    }}
+    Sørg for at kolonnenavn i 'params' nøyaktig matcher kolonnenavnene i DataFrame-skjemaet.
+    Hvis en parameter (som 'x' eller 'y' for bar_chart/line_chart) ikke er strengt nødvendig fordi Streamlit
+    kan utlede den fra data (f.eks. bruke indeksen for x, eller alle numeriske kolonner for y),
+    kan du sette verdien til null eller utelate parameteren fra "params" hvis det er mer hensiktsmessig.
+    For eksempel, for st.bar_chart(df_med_kategori_som_indeks), kan 'x' være null.
+    """
+
+    logger.info("Ber LLM om visualiseringsforslag...")
+    try:
+        # Bruk den globale llm_instance fra llm_client
+        # Dette er et direkte kall, ikke via agentens invoke-metode
+        response = llm_instance.invoke(prompt)
+        
+        # Anta at response.content inneholder tekststrengen fra LLM
+        content_str = response.content if hasattr(response, 'content') else str(response)
+        
+        logger.debug(f"LLM-svar for visualisering: {content_str}")
+
+        # Prøv å finne JSON-blokken i svaret (LLMs kan legge til ekstra tekst)
+        json_block_match = ast.literal_eval(content_str) # Prøver en enkel eval først hvis det er ren JSON
+        if isinstance(json_block_match, dict):
+            suggestion = json_block_match
+        else: # Fallback hvis det er mer tekst, prøv å parse med json.loads etter å ha funnet blokken
+            try:
+                # Dette er en enkel måte, kan trenge mer robust parsing
+                start_index = content_str.find('{')
+                end_index = content_str.rfind('}') + 1
+                if start_index != -1 and end_index != -1:
+                    json_str = content_str[start_index:end_index]
+                    suggestion = json.loads(json_str)
+                else:
+                    logger.error("Fant ikke JSON-blokk i LLM-svar for visualisering.")
+                    return None
+            except json.JSONDecodeError as e:
+                logger.error(f"Kunne ikke parse JSON fra LLM-svar for visualisering: {e}. Svar: {content_str}")
+                return None
+        
+        # Validering av forslaget (enkelt eksempel)
+        if 'chart_type' in suggestion and 'params' in suggestion:
+            logger.info(f"LLM foreslo visualisering: {suggestion}")
+            return suggestion
+        else:
+            logger.error(f"Ugyldig format på visualiseringsforslag fra LLM: {suggestion}")
+            return None
+
+    except Exception as e:
+        logger.exception(f"Feil under kall til LLM for visualiseringsforslag: {e}")
+        return None
