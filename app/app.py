@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FAVICON_PATH = os.path.join(PROJECT_ROOT, "public", "favicon.png")
-LOGO_SIDEBAR_PATH = os.path.join(PROJECT_ROOT, "public", "logo_wide_text.png") # Or another logo
+LOGO_SIDEBAR_PATH = os.path.join(PROJECT_ROOT, "public", "logo_wide_text.png")
 
 def initialize_session_state():
     """

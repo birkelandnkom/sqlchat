@@ -3,10 +3,9 @@ import pandas as pd
 from io import BytesIO
 import copy
 import logging
-import numpy as np # For å sjekke numeriske datatyper
+import numpy as np
 
 from backend.token_tracer import TokenUsageCallbackHandler
-# Nå importerer vi også get_visualization_suggestion
 from services.processing import process_sql_to_dataframe, TOKEN_TO_GCO2E_FACTOR, get_visualization_suggestion
 
 logger = logging.getLogger(__name__)
@@ -21,7 +20,7 @@ def display_messages():
     Inkluderer nå en knapp for AI-generert visualisering av DataFrames.
     """
     for i, message in enumerate(st.session_state.get("messages", [])):
-        message_id = message.get("id", f"msg_{i}") # Sørg for at vi har en ID
+        message_id = message.get("id", f"msg_{i}")
 
         avatar_icon = "🧑‍💻" if message["role"] == "user" else "🤖"
         with st.chat_message(message["role"], avatar=avatar_icon):
@@ -36,38 +35,34 @@ def display_messages():
                     except Exception as e:
                         logger.error(f"Kunne ikke konvertere message['dataframe'] til DataFrame: {e}")
                         st.error("Kunne ikke vise tabellen.")
-                        df_to_display = None # Sørg for at den er None
+                        df_to_display = None 
                 
                 if df_to_display is not None:
-                    current_df = df_to_display # Lagre referanse til den gyldige DataFrame
+                    current_df = df_to_display 
                     if not df_to_display.empty:
                         st.dataframe(df_to_display)
                     elif "dataframe" in message: 
                         st.caption("Tomt resultatsett.")
             
-            # AI-generert visualisering
             if current_df is not None and not current_df.empty:
                 if st.button("📊 Generer visualisering med AI", key=f"ai_vis_btn_{message_id}"):
                     st.session_state.ai_visualize_request = {
                         "message_id": message_id,
-                        "dataframe_for_ai_processing": current_df.copy() # Send en kopi for AI-prosessering
+                        "dataframe_for_ai_processing": current_df.copy() 
                     }
-                    # Nullstill tidligere forslag slik at det ikke vises mens nytt genereres
                     if "ai_visualization_suggestion" in st.session_state:
                         del st.session_state.ai_visualization_suggestion
-                    if "last_message_id_for_ai_viz" in st.session_state: # Holder styr på hvilken melding forslaget gjelder
+                    if "last_message_id_for_ai_viz" in st.session_state: 
                          del st.session_state.last_message_id_for_ai_viz
                     st.rerun()
 
                 if st.session_state.get("ai_visualize_request", {}).get("message_id") == message_id:
                     with st.expander("AI-generert visualisering", expanded=True):
                         with st.spinner("🤖 AI tenker ut en passende visualisering..."):
-                            # Hent DataFrame fra forespørselen, ikke fra meldingen (kan være gammel)
                             df_for_ai = st.session_state.ai_visualize_request["dataframe_for_ai_processing"]
                             suggestion = get_visualization_suggestion(df_for_ai)
                             
                             if suggestion:
-                                # Lagre forslaget og ID-en til meldingen det gjelder
                                 st.session_state.ai_visualization_suggestion = suggestion
                                 st.session_state.last_message_id_for_ai_viz = message_id
                                 del st.session_state.ai_visualize_request 
@@ -78,20 +73,17 @@ def display_messages():
                                     del st.session_state.ai_visualize_request
 
 
-            # Vis lagret AI-visualisering hvis den finnes og gjelder for denne meldingen
             if "ai_visualization_suggestion" in st.session_state and \
                message_id == st.session_state.get("last_message_id_for_ai_viz"):
                 
                 suggestion = st.session_state.ai_visualization_suggestion
-                # Bruk DataFrame som ble lagret i meldingen, da dette er den "offisielle" dataen for denne meldingen
                 df_to_plot_original = message.get("dataframe") 
                 
                 if df_to_plot_original is not None and not df_to_plot_original.empty:
-                    # Sørg for at df_to_plot_original er en DataFrame
                     if not isinstance(df_to_plot_original, pd.DataFrame):
                         try:
                             df_to_plot_original = pd.DataFrame(df_to_plot_original)
-                        except: # noqa: E722
+                        except:
                             st.error("Data for plotting er ikke i gyldig format.")
                             df_to_plot_original = None
 
@@ -103,20 +95,18 @@ def display_messages():
                         
                         st.subheader(title)
 
-                        # Bruk en kopi av den originale DataFrame for plotting for å unngå sideeffekter
                         plot_data_source = df_to_plot_original.copy()
 
-                        x_col_name = params.get("x") # Kan være None hvis LLM vil bruke indeksen
+                        x_col_name = params.get("x")
                         y_col_names = params.get("y")
                         
                         if y_col_names and not isinstance(y_col_names, list):
                             y_col_names = [y_col_names]
                         
-                        # Valider at foreslåtte kolonner eksisterer
                         valid_plot = True
                         if x_col_name and x_col_name not in plot_data_source.columns:
                             st.warning(f"AI foreslo x-kolonnen '{x_col_name}', som ikke finnes. Tilgjengelige: {', '.join(plot_data_source.columns)}. Prøver å bruke indeksen.")
-                            x_col_name = None # Fallback til å bruke indeksen
+                            x_col_name = None
                         
                         if y_col_names:
                             for y_col_check in y_col_names:
@@ -124,8 +114,7 @@ def display_messages():
                                     st.error(f"AI foreslo y-kolonnen '{y_col_check}', som ikke finnes. Tilgjengelige: {', '.join(plot_data_source.columns)}.")
                                     valid_plot = False
                                     break
-                        elif chart_type not in ["map"]: # y er vanligvis påkrevd for de fleste diagrammer unntatt kart
-                            # Prøv å velge alle numeriske kolonner hvis y ikke er spesifisert
+                        elif chart_type not in ["map"]:
                             numeric_cols = plot_data_source.select_dtypes(include=np.number).columns.tolist()
                             if numeric_cols:
                                 y_col_names = numeric_cols
@@ -135,15 +124,12 @@ def display_messages():
                                 valid_plot = False
                         
                         if not valid_plot:
-                            # Nullstill forslaget hvis det er ugyldig, for å unngå å prøve på nytt
                             if "ai_visualization_suggestion" in st.session_state:
                                 del st.session_state.ai_visualization_suggestion
                             if "last_message_id_for_ai_viz" in st.session_state:
                                 del st.session_state.last_message_id_for_ai_viz
-                            # Gå ut her for å unngå å prøve å plotte
-                            return # Eller continue til neste melding hvis dette er i en løkke
+                            return
 
-                        # Kartlegging til Streamlit-funksjoner
                         if chart_type == "bar_chart":
                             st.bar_chart(plot_data_source, x=x_col_name, y=y_col_names)
                         elif chart_type == "line_chart":
@@ -159,7 +145,6 @@ def display_messages():
                                 st.warning(f"AI foreslo 'color'-kolonnen '{color_col}', som ikke finnes. Fortsetter uten 'color'.")
                                 color_col = None
                             
-                            # Scatter chart tar vanligvis én y-kolonne. Hvis y_col_names er en liste, bruk den første.
                             single_y_for_scatter = y_col_names[0] if y_col_names else None
                             if x_col_name and not single_y_for_scatter: # Trenger minst x og y
                                 st.error("For punktdiagram må både x- og y-kolonne være spesifisert av AI.")
@@ -184,7 +169,6 @@ def display_messages():
                     except Exception as e:
                         logger.error(f"Kunne ikke rendre AI-foreslått graf: {e}", exc_info=True)
                         st.error(f"En feil oppstod under generering av AI-grafen: {e}")
-                        # Nullstill forslaget ved feil for å unngå gjentatte feil på reruns
                         if "ai_visualization_suggestion" in st.session_state:
                             del st.session_state.ai_visualization_suggestion
                         if "last_message_id_for_ai_viz" in st.session_state:
@@ -233,7 +217,6 @@ def handle_user_input(prompt: str):
     st.session_state.processing_prompt = prompt 
     st.session_state.current_asst_msg_id = asst_msg_id
     
-    # Nullstill tidligere AI-visualiseringsstatus når en ny melding sendes
     if "ai_visualize_request" in st.session_state:
         del st.session_state.ai_visualize_request
     if "ai_visualization_suggestion" in st.session_state:
@@ -348,7 +331,7 @@ def process_agent_interaction():
         else: 
             message_to_update.pop("agent_steps", None)
         
-        if final_df is not None and not final_df.empty: # Only set if there's a df to potentially visualize
+        if final_df is not None and not final_df.empty:
             st.session_state.last_message_id_for_ai_viz = message_to_update.get("id")
 
 

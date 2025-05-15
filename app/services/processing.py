@@ -2,12 +2,11 @@ import streamlit as st
 import pandas as pd
 import ast
 import logging
-import json # For parsing LLM response
+import json
 
 from backend.agent_builder import build_agent
 from backend.db_client import db
-# Vi trenger LLM-klienten direkte for å lage et kall utenfor agent-loopen
-from backend.llm_client import llm as llm_instance # Gi den et alias for å unngå navnekonflikt hvis brukt i samme fil
+from backend.llm_client import llm as llm_instance
 
 logger = logging.getLogger(__name__)
 
@@ -139,18 +138,13 @@ def get_visualization_suggestion(df: pd.DataFrame) -> dict | None:
     if df is None or df.empty:
         return None
 
-    # Lag en strengrepresentasjon av DataFrame-skjema og hode
-    # df.info() går til stdout, så vi må fange det eller bygge manuelt
+
     schema_parts = ["Kolonnenavn (Datatype):"]
     for col, dtype in df.dtypes.items():
         schema_parts.append(f"- {col} ({dtype})")
     schema_str = "\n".join(schema_parts)
     
-    # Begrens dataeksempel for å unngå for store prompts
     data_sample_str = df.head(3).to_string()
-
-    # Definer tilgjengelige Streamlit-graf-funksjoner vi vil at LLM skal vurdere
-    # Vi kan utvide denne listen senere
     available_charts = """
     - 'bar_chart': For søylediagram. Bruk st.bar_chart(data=df, x='kol_x', y='kol_y'). Hvis y er en liste med kolonner, lages grupperte søyler. Hvis x ikke er satt, brukes indeksen.
     - 'line_chart': For linjediagram. Bruk st.line_chart(data=df, x='kol_x', y='kol_y'). Hvis y er en liste med kolonner, lages flere linjer. Hvis x ikke er satt, brukes indeksen.
@@ -194,22 +188,17 @@ def get_visualization_suggestion(df: pd.DataFrame) -> dict | None:
 
     logger.info("Ber LLM om visualiseringsforslag...")
     try:
-        # Bruk den globale llm_instance fra llm_client
-        # Dette er et direkte kall, ikke via agentens invoke-metode
         response = llm_instance.invoke(prompt)
         
-        # Anta at response.content inneholder tekststrengen fra LLM
         content_str = response.content if hasattr(response, 'content') else str(response)
         
         logger.debug(f"LLM-svar for visualisering: {content_str}")
 
-        # Prøv å finne JSON-blokken i svaret (LLMs kan legge til ekstra tekst)
-        json_block_match = ast.literal_eval(content_str) # Prøver en enkel eval først hvis det er ren JSON
+        json_block_match = ast.literal_eval(content_str)
         if isinstance(json_block_match, dict):
             suggestion = json_block_match
-        else: # Fallback hvis det er mer tekst, prøv å parse med json.loads etter å ha funnet blokken
+        else:
             try:
-                # Dette er en enkel måte, kan trenge mer robust parsing
                 start_index = content_str.find('{')
                 end_index = content_str.rfind('}') + 1
                 if start_index != -1 and end_index != -1:
@@ -222,7 +211,6 @@ def get_visualization_suggestion(df: pd.DataFrame) -> dict | None:
                 logger.error(f"Kunne ikke parse JSON fra LLM-svar for visualisering: {e}. Svar: {content_str}")
                 return None
         
-        # Validering av forslaget (enkelt eksempel)
         if 'chart_type' in suggestion and 'params' in suggestion:
             logger.info(f"LLM foreslo visualisering: {suggestion}")
             return suggestion

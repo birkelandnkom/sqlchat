@@ -2,9 +2,8 @@ import streamlit as st
 import os
 from PIL import Image
 
-# Oppdaterte konverteringsfaktorer for gCO₂e
-# Basert på 19 gCO₂e/kWh for strøm i Norge (NVE 2019-tall for varedeklarasjon)
-GCO2E_PER_HOUR_LED_10W = 0.01 * 19  # 0.01 kWh/time * 19 gCO₂e/kWh = 0.19 gCO₂e/time
+
+GCO2E_PER_HOUR_LED_10W = 0.01 * 19
 
 def get_gco2e_equivalence_text(gco2e_value: float) -> str | None:
     """
@@ -17,20 +16,19 @@ def get_gco2e_equivalence_text(gco2e_value: float) -> str | None:
     Returns:
         str | None: En formatert streng med ekvivalensen, eller None hvis verdien er for liten.
     """
-    if gco2e_value <= 0: # Endret til <= for å fange nøyaktig 0 også
+    if gco2e_value <= 0:
         return None
 
     gco2e_per_minute_led = GCO2E_PER_HOUR_LED_10W / 60
     gco2e_per_second_led = gco2e_per_minute_led / 60
 
-    # Prioriter den mest leselige enheten
-    if gco2e_value >= GCO2E_PER_HOUR_LED_10W * 0.5: # Hvis det er 0.5 timer eller mer
+    if gco2e_value >= GCO2E_PER_HOUR_LED_10W * 0.5:
         hours_led = gco2e_value / GCO2E_PER_HOUR_LED_10W
         return f" tilsvarer ca. {hours_led:.1f} timer med en 10W LED-pære."
-    elif gco2e_value >= gco2e_per_minute_led * 0.8: # Hvis det er ca. 1 minutt eller mer (og mindre enn 0.5 timer)
+    elif gco2e_value >= gco2e_per_minute_led * 0.8:
         minutes_led = gco2e_value / gco2e_per_minute_led
         return f" tilsvarer ca. {minutes_led:.0f} minutter med en 10W LED-pære."
-    elif gco2e_value >= gco2e_per_second_led: # Hvis det er minst 1 sekund (og mindre enn ca. 1 minutt)
+    elif gco2e_value >= gco2e_per_second_led:
         seconds_led = gco2e_value / gco2e_per_second_led
         return f" tilsvarer ca. {seconds_led:.0f} sekunder med en 10W LED-pære."
     
@@ -55,7 +53,7 @@ def render_sidebar(logo_path: str | None = None):
         if os.path.exists(logo_path):
             try:
                 img = Image.open(logo_path) 
-                st.sidebar.image(logo_path, use_container_width=True) # Endret til use_container_width
+                st.sidebar.image(logo_path, use_container_width=True)
             except FileNotFoundError:
                 st.sidebar.warning(f"Logofil ikke funnet: {logo_path}")
             except Exception as e:
@@ -85,9 +83,8 @@ def render_sidebar(logo_path: str | None = None):
         if equivalence_text:
             st.sidebar.caption(equivalence_text)
     else:
-        # Vis en alternativ tekst hvis ingen gCO2e er generert enda
         st.sidebar.markdown(f"**{gco2e_metric_label}**")
-        st.sidebar.markdown("Ingen aktivitet enda.") # Eller en annen passende melding
+        st.sidebar.markdown("Ingen aktivitet enda.") 
 
 
     st.sidebar.markdown("---")
