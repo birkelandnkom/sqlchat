@@ -1,0 +1,25 @@
+[theme]
+# Primærfarge (brukes for de fleste interaktive elementer)
+primaryColor="#00509e"
+
+# Bakgrunnsfarge for hovedinnholdet
+backgroundColor="#ffffff" 
+
+# Bakgrunnsfarge for sidepanelet og andre sekundære områder
+secondaryBackgroundColor="#f0f2f6"
+
+# Tekstfarge
+textColor="#0b213f"
+
+# Skrifttype (Streamlit støtter "sans serif", "serif", eller "monospace")
+font="sans serif"
+
+# Eksempler på andre farger:
+# widgetBackgroundColor = "#e0e0e0"
+# widgetBorderColor = "#c0c0c0"
+# disabledWidgetBackgroundColor = "#f0f0f0"
+# disabledWidgetTextColor = "#808080"
+# Kategori farger for diagrammer (opptil 10)
+# category1 = "#ff5733"
+# category2 = "#33ff57"
+# etc.
