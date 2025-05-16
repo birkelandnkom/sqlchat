@@ -19,7 +19,7 @@ Dette prosjektet er en Proof-of-Concept (PoC) Streamlit-applikasjon som demonstr
     * Enkel passordautentisering for PoC.
     * Tilpasset tema og logo (Nkom-inspirert).
 
-## Oppsett og Installasjon
+## Oppsett og installasjon
 
 1.  **Forutsetninger:**
     * Python 3.9+
@@ -97,10 +97,4 @@ Dette prosjektet er en Proof-of-Concept (PoC) Streamlit-applikasjon som demonstr
 
 Backend-logikken, som håndterer opprettelsen av LangChain SQL-agenten, LLM-klientinteraksjon, og databaseforbindelsen, er i hovedsak uendret fra den opprinnelige Chainlit-versjonen og ligger i `backend/`-mappen.
 
-## Fremtidige Forbedringer (Eksempler)
-
-* Integrasjon med Azure SSO for robust autentisering.
-* Mer avanserte manuelle visualiseringsvalg for brukeren.
-* Mulighet for å lagre/eksportere chat-historikk.
-* Forbedret konteksthåndtering i agenten for lengre samtaler.
 
