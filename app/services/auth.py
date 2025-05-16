@@ -18,7 +18,7 @@ def check_password() -> bool:
         logo_col1, logo_col2, logo_col3 = st.columns([1, 2, 1])
         
         with logo_col2:
-            st.image(LOGO_PATH, width=200, use_container_width=False)
+            st.image(LOGO_PATH, width=200, use_container_width=True)
         
         #st.write("SQL Chatbot")
         with st.form("login_form"):

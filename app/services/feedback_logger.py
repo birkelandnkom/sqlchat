@@ -11,6 +11,12 @@ FEEDBACK_LOG_FILE = os.path.join(FEEDBACK_LOG_DIR, "feedback_log.jsonl")
 logger = logging.getLogger(__name__)
 
 def log_feedback_to_file(feedback_data: dict):
+    """
+    Writes a given feedback entry to the JSONL log file.
+
+    Args:
+        feedback_data (dict): The dictionary containing feedback information.
+    """
     try:
         if not os.path.exists(FEEDBACK_LOG_DIR):
             os.makedirs(FEEDBACK_LOG_DIR)
@@ -24,6 +30,10 @@ def log_feedback_to_file(feedback_data: dict):
         logger.error(f"Klarte ikke skrive tilbakemelding til {FEEDBACK_LOG_FILE}: {e}", exc_info=True)
 
 def process_all_feedback():
+    """
+    Processes all feedback submitted in the current session.
+    Logs both positive (thumbs up) and negative (thumbs down) feedback.
+    """
     if "messages" not in st.session_state or not st.session_state.messages:
         return
 
@@ -40,7 +50,7 @@ def process_all_feedback():
                 continue
 
             feedback_key = f"feedback_{message_id}"
-            feedback_score = st.session_state.get(feedback_key)
+            feedback_score = st.session_state.get(feedback_key) # 0 for thumbs down, 1 for thumbs up
 
             if feedback_score is not None and message_id not in st.session_state.processed_feedback_ids:
                 user_query = "N/A"
@@ -54,21 +64,24 @@ def process_all_feedback():
                             preceding_user_message_id = prev_message.get("id", "N/A")
                             break
                 
-                if feedback_score == 0: 
-                    log_entry = {
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                        "user_query": user_query,
-                        "assistant_response": message.get("content", ""),
-                        "feedback_score_value": feedback_score,
-                        "feedback_type": "thumbs_down",
-                        "message_id": message_id,
-                        "preceding_user_message_id": preceding_user_message_id,
-                        "agent_steps": message.get("agent_steps", [])
-                    }
+                log_entry_base = {
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "user_query": user_query,
+                    "assistant_response": message.get("content", ""),
+                    "feedback_score_value": feedback_score,
+                    "message_id": message_id,
+                    "preceding_user_message_id": preceding_user_message_id,
+                    "agent_steps": message.get("agent_steps", [])
+                }
+
+                if feedback_score == 0:
+                    log_entry = {**log_entry_base, "feedback_type": "thumbs_down"}
                     log_feedback_to_file(log_entry)
-                    st.toast(f"Takk for din tilbakemelding. Dette hjelper oss å forbedre tjenesten.", icon="📝")
+                    st.toast("Takk for din tilbakemelding. Dette hjelper oss å forbedre tjenesten.", icon="📝")
                 
-                elif feedback_score == 1: 
-                     st.toast(f"Takk for din tilbakemelding!", icon="😊")
+                elif feedback_score == 1:
+                    log_entry = {**log_entry_base, "feedback_type": "thumbs_up"}
+                    log_feedback_to_file(log_entry)
+                    st.toast("Takk for din tilbakemelding!", icon="😊")
 
                 st.session_state.processed_feedback_ids.add(message_id)
