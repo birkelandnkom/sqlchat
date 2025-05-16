@@ -7,7 +7,7 @@ from langchain_core.callbacks.base import BaseCallbackHandler
 from langchain_core.outputs import LLMResult, ChatGeneration, Generation
 from langchain_core.messages import AIMessage
 
-logger = logging.getLogger(__name__) # Use a logger specific to this module
+logger = logging.getLogger(__name__)
 
 class TokenUsageCallbackHandler(BaseCallbackHandler):
     """
@@ -36,7 +36,6 @@ class TokenUsageCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> None:
         """Run when LLM starts running."""
-        # Log LLM type if available
         llm_type = serialized.get("id", ["<unknown_llm>"])[-1] if serialized and serialized.get("id") else "<unknown_llm>"
         logger.info(f"LLM Start (Run ID: {run_id}, Type: {llm_type})")
         self.steps.append({
@@ -44,7 +43,6 @@ class TokenUsageCallbackHandler(BaseCallbackHandler):
             "run_id": str(run_id),
             "parent_run_id": str(parent_run_id) if parent_run_id else None,
             "llm_type": llm_type,
-            # "prompts": prompts # Potentially large, enable if needed for debugging
         })
 
     def on_llm_end(
@@ -75,7 +73,7 @@ class TokenUsageCallbackHandler(BaseCallbackHandler):
                         if total_tokens == 0 and (prompt_tokens > 0 or completion_tokens > 0):
                             total_tokens = prompt_tokens + completion_tokens
                         
-                        if total_tokens > 0: # Ensure we actually got some tokens
+                        if total_tokens > 0:
                             step_prompt_tokens += prompt_tokens
                             step_completion_tokens += completion_tokens
                             step_total_tokens += total_tokens
@@ -104,7 +102,6 @@ class TokenUsageCallbackHandler(BaseCallbackHandler):
             )
             logger.info(log_msg)
         else:
-            # Refined warning
             warning_msg = f"LLM End (Run ID: {run_id}). Could not extract token usage for this LLM step. "
             if response.generations and isinstance(response.generations[0][0], ChatGeneration) and \
                hasattr(response.generations[0][0].message, 'usage_metadata') and \
@@ -114,7 +111,6 @@ class TokenUsageCallbackHandler(BaseCallbackHandler):
                  warning_msg += "llm_output.token_usage was present but empty. "
             warning_msg += "Token counts may be incomplete. Check LLM provider's response structure."
             logger.info(warning_msg)
-            # logger.debug(f"Full LLMResult for Run ID {run_id} (no tokens found): {response}")
 
 
         logger.info(
@@ -144,7 +140,7 @@ class TokenUsageCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> None:
         self.llm_errors += 1
-        logger.error(f"LLM Error (Run ID: {run_id}): {error}", exc_info=True) # Add exc_info for traceback
+        logger.error(f"LLM Error (Run ID: {run_id}): {error}", exc_info=True)
         self.steps.append({
             "type": "llm_error",
             "run_id": str(run_id),
@@ -164,7 +160,6 @@ class TokenUsageCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> None:
         self._current_chain_ids.append(run_id)
-        # MODIFIED: Added check for serialized being None
         if serialized is None:
             logger.info(f"Chain Start (Run ID: {run_id}): Received None for 'serialized' object. Cannot determine chain name.")
             chain_name = "<unknown_chain_type_due_to_none_serialized>"
@@ -172,14 +167,12 @@ class TokenUsageCallbackHandler(BaseCallbackHandler):
             chain_name_parts = serialized.get("id", ["<unknown_chain>"])
             chain_name = chain_name_parts[-1] if chain_name_parts else "<unknown_chain>"
         
-        logger.info(f"Chain Start (Run ID: {run_id}, Name: {chain_name}).") # Inputs can be verbose
-        # logger.debug(f"Chain Start (Run ID: {run_id}, Name: {chain_name}). Inputs: {inputs if inputs else '{}'}")
+        logger.info(f"Chain Start (Run ID: {run_id}, Name: {chain_name}).")
         self.steps.append({
             "type": "chain_start",
             "run_id": str(run_id),
             "parent_run_id": str(parent_run_id) if parent_run_id else None,
             "name": chain_name,
-            # "inputs": inputs # Be careful with logging sensitive inputs
         })
 
     def on_chain_end(
@@ -194,19 +187,17 @@ class TokenUsageCallbackHandler(BaseCallbackHandler):
             self._current_chain_ids.pop()
         
         chain_name = "<unknown_chain_ended>"
-        for step in reversed(self.steps): # Find corresponding start step
+        for step in reversed(self.steps): 
             if step.get("run_id") == str(run_id) and step.get("type") == "chain_start":
                 chain_name = step.get("name", chain_name)
                 break
         
-        logger.info(f"Chain End (Run ID: {run_id}, Name: {chain_name}).") # Outputs can be verbose
-        # logger.debug(f"Chain End (Run ID: {run_id}, Name: {chain_name}). Outputs: {outputs if outputs else '{}'}")
+        logger.info(f"Chain End (Run ID: {run_id}, Name: {chain_name}).") 
         self.steps.append({
             "type": "chain_end",
             "run_id": str(run_id),
             "parent_run_id": str(parent_run_id) if parent_run_id else None,
             "name": chain_name,
-            # "outputs": outputs 
         })
 
     def on_chain_error(
@@ -238,7 +229,6 @@ class TokenUsageCallbackHandler(BaseCallbackHandler):
         metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
-        # MODIFIED: Added check for serialized being None
         if serialized is None:
             logger.warning(f"Tool Start (Run ID: {run_id}): Received None for 'serialized' object. Cannot determine tool name.")
             tool_name = "<unknown_tool_type_due_to_none_serialized>"
@@ -267,15 +257,12 @@ class TokenUsageCallbackHandler(BaseCallbackHandler):
             if step.get("run_id") == str(run_id) and step.get("type") == "tool_start":
                 tool_name = step.get("name", tool_name)
                 break
-        # Output can be very long (e.g. SQL query result), so log summary
         logger.info(f"Tool End (Run ID: {run_id}, Name: {tool_name}). Output length: {len(output)}")
-        # logger.debug(f"Tool End (Run ID: {run_id}, Name: {tool_name}). Output: '{output}'")
         self.steps.append({
             "type": "tool_end",
             "run_id": str(run_id),
             "parent_run_id": str(parent_run_id) if parent_run_id else None,
             "name": tool_name, 
-            # "output": output # Potentially very large
         })
 
     def on_tool_error(
@@ -302,13 +289,13 @@ class TokenUsageCallbackHandler(BaseCallbackHandler):
     
     def on_agent_action(
         self,
-        action: Any, # langchain_core.agents.AgentAction
+        action: Any,
         *,
         run_id: UUID,
         parent_run_id: Optional[UUID] = None,
         **kwargs: Any,
     ) -> None:
-        tool_log = action.log.strip().replace('\n', ' ') # Clean up log for single line
+        tool_log = action.log.strip().replace('\n', ' ')
         logger.info(f"Agent Action (Run ID: {run_id}): Tool: {action.tool}, Input: '{action.tool_input}', Log: '{tool_log}'")
         self.steps.append({
             "type": "agent_action",
@@ -321,7 +308,7 @@ class TokenUsageCallbackHandler(BaseCallbackHandler):
 
     def on_agent_finish(
         self,
-        finish: Any, # langchain_core.agents.AgentFinish
+        finish: Any, 
         *,
         run_id: UUID,
         parent_run_id: Optional[UUID] = None,

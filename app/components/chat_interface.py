@@ -11,14 +11,9 @@ from services.processing import process_sql_to_dataframe, TOKEN_TO_GCO2E_FACTOR,
 logger = logging.getLogger(__name__)
 
 def display_messages():
-    """
-    Viser chatmeldinger lagret i Streamlits session state.
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
 
-    Itererer gjennom meldinger og renderer dem i henhold til deres rolle (bruker eller assistent).
-    Håndterer visning av meldingsinnhold, Pandas DataFrames, CSV-nedlastingsknapper,
-    og utvidbare seksjoner for agentens mellomliggende trinn.
-    Inkluderer nå en knapp for AI-generert visualisering av DataFrames.
-    """
     for i, message in enumerate(st.session_state.get("messages", [])):
         message_id = message.get("id", f"msg_{i}")
 
@@ -59,19 +54,20 @@ def display_messages():
                 if st.session_state.get("ai_visualize_request", {}).get("message_id") == message_id:
                     with st.expander("AI-generert visualisering", expanded=True):
                         with st.spinner("🤖 AI tenker ut en passende visualisering..."):
-                            df_for_ai = st.session_state.ai_visualize_request["dataframe_for_ai_processing"]
-                            suggestion = get_visualization_suggestion(df_for_ai)
-                            
-                            if suggestion:
-                                st.session_state.ai_visualization_suggestion = suggestion
-                                st.session_state.last_message_id_for_ai_viz = message_id
-                                del st.session_state.ai_visualize_request 
-                                st.rerun() 
-                            else:
-                                st.error("Beklager, AI-en kunne ikke generere et visualiseringsforslag for disse dataene.")
+                            if "ai_visualization_suggestion" not in st.session_state or \
+                               st.session_state.get("last_message_id_for_ai_viz") != message_id:
+                                
+                                df_for_ai = st.session_state.ai_visualize_request["dataframe_for_ai_processing"]
+                                suggestion = get_visualization_suggestion(df_for_ai)
+                                
+                                if suggestion:
+                                    st.session_state.ai_visualization_suggestion = suggestion
+                                    st.session_state.last_message_id_for_ai_viz = message_id
+                                else:
+                                    st.error("Beklager, AI-en kunne ikke generere et visualiseringsforslag for disse dataene.")
                                 if "ai_visualize_request" in st.session_state:
                                     del st.session_state.ai_visualize_request
-
+                                st.rerun()
 
             if "ai_visualization_suggestion" in st.session_state and \
                message_id == st.session_state.get("last_message_id_for_ai_viz"):
@@ -109,11 +105,17 @@ def display_messages():
                             x_col_name = None
                         
                         if y_col_names:
+                            valid_y_cols = []
                             for y_col_check in y_col_names:
-                                if y_col_check not in plot_data_source.columns:
+                                if y_col_check in plot_data_source.columns:
+                                    valid_y_cols.append(y_col_check)
+                                else:
                                     st.error(f"AI foreslo y-kolonnen '{y_col_check}', som ikke finnes. Tilgjengelige: {', '.join(plot_data_source.columns)}.")
                                     valid_plot = False
                                     break
+                            y_col_names = valid_y_cols
+                            if not y_col_names:
+                                valid_plot = False
                         elif chart_type not in ["map"]:
                             numeric_cols = plot_data_source.select_dtypes(include=np.number).columns.tolist()
                             if numeric_cols:
@@ -126,8 +128,6 @@ def display_messages():
                         if not valid_plot:
                             if "ai_visualization_suggestion" in st.session_state:
                                 del st.session_state.ai_visualization_suggestion
-                            if "last_message_id_for_ai_viz" in st.session_state:
-                                del st.session_state.last_message_id_for_ai_viz
                             return
 
                         if chart_type == "bar_chart":
@@ -146,14 +146,10 @@ def display_messages():
                                 color_col = None
                             
                             single_y_for_scatter = y_col_names[0] if y_col_names else None
-                            if x_col_name and not single_y_for_scatter: # Trenger minst x og y
-                                st.error("For punktdiagram må både x- og y-kolonne være spesifisert av AI.")
-                            elif x_col_name or single_y_for_scatter : # En av dem må være der
-                                st.scatter_chart(plot_data_source, x=x_col_name, y=single_y_for_scatter, size=size_col, color=color_col)
+                            if not (x_col_name and single_y_for_scatter): 
+                                st.error("For punktdiagram må både en gyldig x- og y-kolonne være tilgjengelig.")
                             else:
-                                st.error("Kunne ikke lage punktdiagram, mangler x- eller y-kolonne.")
-
-
+                                st.scatter_chart(plot_data_source, x=x_col_name, y=single_y_for_scatter, size=size_col, color=color_col)
                         elif chart_type == "area_chart":
                             st.area_chart(plot_data_source, x=x_col_name, y=y_col_names)
                         elif chart_type == "map":
@@ -171,9 +167,6 @@ def display_messages():
                         st.error(f"En feil oppstod under generering av AI-grafen: {e}")
                         if "ai_visualization_suggestion" in st.session_state:
                             del st.session_state.ai_visualization_suggestion
-                        if "last_message_id_for_ai_viz" in st.session_state:
-                            del st.session_state.last_message_id_for_ai_viz
-
 
             if "csv_data" in message and message["csv_data"] is not None:
                 st.download_button(
@@ -183,21 +176,42 @@ def display_messages():
                     mime="text/csv",
                     key=f"download_{message_id}"
                 )
+            
             if "agent_steps" in message and message["agent_steps"]:
                 with st.expander("Vis agentens tankeprosess og SQL"):
                     for step in message["agent_steps"]:
-                        st.markdown(f"**{step['type']}**: {step.get('name', 'N/A')}")
-                        if "input" in step: st.code(step["input"], language="sql" if "sql" in step.get('name','').lower() else "text")
-                        if "output" in step: st.text(str(step["output"])[:1000] + "..." if len(str(step["output"])) > 1000 else str(step["output"]))
-                        if "log" in step: st.text(f"Log: {step['log']}")
+                        step_name = str(step.get('name', 'N/A'))
+                        step_input = str(step.get("input", ""))
+                        step_output = str(step.get("output", ""))
+                        step_log = str(step.get("log", ""))
+
+                        st.markdown(f"**{step.get('type', 'Ukjent Steg')}**: {step_name}")
+                        if "input" in step: st.code(step_input, language="sql" if "sql" in step_name.lower() else "text")
+                        if "output" in step: st.text(step_output[:1000] + "..." if len(step_output) > 1000 else step_output)
+                        if "log" in step and step_log: st.text(f"Log: {step_log}")
+
+            if message["role"] == "assistant":
+                if message_id:
+                    is_welcome_message = message_id.startswith("welcome_")
+                    is_processing_message = message.get("content") == "Behandler forespørselen din..."
+                    
+                    if not is_welcome_message and not is_processing_message:
+                        feedback_key = f"feedback_{message_id}"
+                        st.feedback(options="thumbs", key=feedback_key)
+                else:
+                    logger.warning(f"Assistant message at index {i} is missing an ID. Feedback widget not shown.")
+
 
 def handle_user_input(prompt: str):
-    """
-    Håndterer brukerens input, initierer plassholder for agentinteraksjon, og oppdaterer session state.
-    """
-    if not st.session_state.agent:
+    if not st.session_state.get("agent"):
         st.error("Chatbot agent er ikke lastet. Prøv å laste siden på nytt.")
-        st.session_state.messages.append({"role": "assistant", "content": "Chatbot agent er ikke lastet. Prøv å laste siden på nytt."})
+        error_msg_id_counter = st.session_state.get("msg_id_counter", 0) + 1
+        st.session_state.msg_id_counter = error_msg_id_counter
+        st.session_state.messages.append({
+            "role": "assistant",
+            "content": "Feil: Chatbot agent er ikke lastet. Kan ikke behandle forespørselen.",
+            "id": f"error_{error_msg_id_counter}"
+        })
         return
 
     msg_id_counter = st.session_state.get("msg_id_counter", 0) + 1
@@ -228,20 +242,27 @@ def handle_user_input(prompt: str):
 
 
 def process_agent_interaction():
-    """
-    Prosesserer agentinteraksjonen ved å bruke den lagrede prompten og oppdaterer assistentens melding.
-    Denne funksjonen kalles etter at UI-en har kjørt på nytt for å vise "behandler"-tilstanden.
-    """
-    prompt = st.session_state.pop("processing_prompt", None)
-    asst_msg_id = st.session_state.pop("current_asst_msg_id", None)
+    prompt_to_process = st.session_state.pop("processing_prompt", None)
+    asst_msg_id_to_update = st.session_state.pop("current_asst_msg_id", None)
 
-    if not prompt or not asst_msg_id:
+    if not prompt_to_process or not asst_msg_id_to_update:
         logger.warning("process_agent_interaction called without prompt or asst_msg_id in session_state.")
         return 
 
-    message_to_update = next((m for m in reversed(st.session_state.messages) if m["id"] == asst_msg_id), None)
-    if not message_to_update:
-        logger.error(f"Could not find assistant message placeholder with ID {asst_msg_id} to update.")
+    message_to_update_index = -1
+    for i, msg in enumerate(st.session_state.messages):
+        if msg.get("id") == asst_msg_id_to_update:
+            message_to_update_index = i
+            break
+    
+    if message_to_update_index == -1:
+        logger.error(f"Could not find assistant message placeholder with ID {asst_msg_id_to_update} to update.")
+        st.session_state.messages.append({
+            "role": "assistant", 
+            "content": f"Intern feil: Kunne ikke oppdatere svar (ID: {asst_msg_id_to_update}).",
+            "id": f"error_update_{asst_msg_id_to_update}"
+        })
+        st.rerun()
         return
 
     token_callback = TokenUsageCallbackHandler()
@@ -251,9 +272,12 @@ def process_agent_interaction():
     assistant_response_content = "" 
 
     try:
-        logger.info(f"Processing message: '{prompt}' with agent.")
+        logger.info(f"Processing message: '{prompt_to_process}' with agent.")
+        if not st.session_state.get("agent"):
+            raise Exception("Agent not available for processing.")
+
         response = st.session_state.agent.invoke(
-            {"input": prompt},
+            {"input": prompt_to_process},
             config={"callbacks": [token_callback]}
         )
         logger.info("Agent invoke finished.")
@@ -265,11 +289,13 @@ def process_agent_interaction():
                 tool_name = getattr(action, 'tool', 'Unknown Tool')
                 raw_tool_input = getattr(action, 'tool_input', '')
                 tool_input_str = str(raw_tool_input)
+                
                 step_detail = {
                     "type": "Verktøy brukt", "name": tool_name, "input": tool_input_str,
                     "output": str(observation), "log": getattr(action, 'log', '').strip().replace('\n', ' ')
                 }
                 agent_steps_for_display.append(step_detail)
+                
                 if 'sql' in tool_name.lower() and \
                    ('query' in tool_name.lower() or 'tool' in tool_name.lower() or 'db' in tool_name.lower()):
                     sql_query_found = tool_input_str
@@ -280,7 +306,7 @@ def process_agent_interaction():
         if sql_query_found:
             assistant_response_content, final_df = process_sql_to_dataframe(sql_query_found, agent_output_text)
         else:
-            logger.info("No SQL query was executed by the agent, or the SQL tool was not recognized.")
+            logger.info("No SQL query was executed by the agent, or the SQL tool was not recognized by the logger.")
             assistant_response_content = agent_output_text
 
     except Exception as e:
@@ -291,7 +317,7 @@ def process_agent_interaction():
         usage_report = token_callback.get_report()
         report_summary_for_log = copy.deepcopy(usage_report)
         report_summary_for_log.pop('detailed_steps', None) 
-        logger.info(f"Token Usage Report Summary for query '{prompt}': {report_summary_for_log}")
+        logger.info(f"Token Usage Report Summary for query '{prompt_to_process}': {report_summary_for_log}")
         
         current_message_tokens = usage_report.get('total_tokens_used', 0)
         current_message_gco2e = current_message_tokens * TOKEN_TO_GCO2E_FACTOR
@@ -305,34 +331,34 @@ def process_agent_interaction():
         )
         if usage_report.get('llm_errors',0) > 0:
              usage_report_summary_for_user += f"\n*Antall LLM-feil: {usage_report['llm_errors']}*"
-
+        
         assistant_response_content += usage_report_summary_for_user
         
-        st.session_state.session_total_tokens += current_message_tokens
-        st.session_state.session_total_gco2e += current_message_gco2e
+        st.session_state.session_total_tokens = st.session_state.get("session_total_tokens", 0) + current_message_tokens
+        st.session_state.session_total_gco2e = st.session_state.get("session_total_gco2e", 0.0) + current_message_gco2e
 
-        message_to_update["content"] = assistant_response_content
+        st.session_state.messages[message_to_update_index]["content"] = assistant_response_content
+        
         if final_df is not None: 
-            message_to_update["dataframe"] = final_df 
+            st.session_state.messages[message_to_update_index]["dataframe"] = final_df 
             if not final_df.empty: 
                 output = BytesIO()
                 final_df.to_csv(output, index=False)
                 csv_bytes = output.getvalue()
                 output.close()
-                message_to_update["csv_data"] = csv_bytes
+                st.session_state.messages[message_to_update_index]["csv_data"] = csv_bytes
             else: 
-                message_to_update.pop("csv_data", None) 
+                st.session_state.messages[message_to_update_index].pop("csv_data", None) 
         else: 
-            message_to_update.pop("dataframe", None)
-            message_to_update.pop("csv_data", None)
+            st.session_state.messages[message_to_update_index].pop("dataframe", None)
+            st.session_state.messages[message_to_update_index].pop("csv_data", None)
 
         if agent_steps_for_display:
-            message_to_update["agent_steps"] = agent_steps_for_display
+            st.session_state.messages[message_to_update_index]["agent_steps"] = agent_steps_for_display
         else: 
-            message_to_update.pop("agent_steps", None)
+            st.session_state.messages[message_to_update_index].pop("agent_steps", None)
         
         if final_df is not None and not final_df.empty:
-            st.session_state.last_message_id_for_ai_viz = message_to_update.get("id")
-
+            st.session_state.last_message_id_for_ai_viz = asst_msg_id_to_update
 
         st.rerun()

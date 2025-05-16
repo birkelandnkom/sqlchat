@@ -71,33 +71,23 @@ def render_sidebar(logo_path: str | None = None):
     st.sidebar.markdown(f"⚡ **Tokens brukt:** {total_tokens:,}")
     
     st.sidebar.markdown("---")
-
-    gco2e_metric_label = "Estimert gCO₂e for økten 🌳"
     
+    help_text = "CO2-ekvivalent er en enhet som brukes i klimagassregnskap. " \
+    "Enheten tilsvarer den effekten en gitt mengde " \
+    "(her i gram) CO2 har på den globale oppvarminga " \
+    "over en gitt periode."
     if total_gco2e > 0:
-        gco2e_metric_value = f"{total_gco2e:.4f} gCO₂e"
-        st.sidebar.markdown(f"**{gco2e_metric_label}**")
-        st.sidebar.markdown(gco2e_metric_value)
-        
+        st.sidebar.metric(label="Estimert gCO₂e for økten 🌳", value=round(total_gco2e, 4), help=help_text)
         equivalence_text = get_gco2e_equivalence_text(total_gco2e)
         if equivalence_text:
             st.sidebar.caption(equivalence_text)
     else:
-        st.sidebar.markdown(f"**{gco2e_metric_label}**")
-        st.sidebar.markdown("Ingen aktivitet enda.") 
+        st.sidebar.metric(label="Estimert gCO₂e for økten 🌳", value="Ingen aktivitet")
 
 
     st.sidebar.markdown("---")
     st.sidebar.markdown(
         """
-        **Hvordan bruke chatboten:**
-        1. Still et spørsmål i chat-feltet.
-        2. Vær tydelig for best resultat.
-        3. Chatboten vil generere SQL, kjøre den, og vise resultater.
-
-        **Tilgjengelige data:**
-        Spørsmål kan stilles mot tabeller som `employees`, `customers`, `invoices`, etc. (Se `db_client.py` for full liste).
-        
         *Modell brukt: o3-mini*
         *Estimert utslipp per token: 0.0001 gCO₂e*
         *Strømmiks for LED-ekvivalent: 19 gCO₂e/kWh (Norge 2019)*
