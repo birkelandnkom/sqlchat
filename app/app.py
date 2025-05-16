@@ -69,7 +69,8 @@ def chatbot_page_main_content():
             "content": "Velkommen! Still meg spørsmål om dataene i databasen.",
             "id": welcome_message_id
         })
-
+        st.rerun()
+        
 if __name__ == "__main__":
     page_icon_img = "🗃️"
     try:
