@@ -20,7 +20,6 @@ logging.basicConfig(
 logging.getLogger('backend.token_tracer').setLevel(logging.WARNING)
 logger = logging.getLogger(__name__) 
 
-# Define project paths
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FAVICON_PATH = os.path.join(PROJECT_ROOT, "public", "favicon.png")
 LOGO_SIDEBAR_PATH = os.path.join(PROJECT_ROOT, "public", "logo_wide_text.png")
