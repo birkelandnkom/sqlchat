@@ -9,8 +9,6 @@ load_dotenv(override=True)
 
 AZURE_OPENAI_API_KEY = os.getenv('AZURE_OPENAI_API_KEY')
 AZURE_OPENAI_ENDPOINT = os.getenv('AZURE_OPENAI_ENDPOINT')
-print("DEBUG: AZURE_OPENAI_API_KEY =", repr(os.getenv("AZURE_OPENAI_API_KEY")))
-print("DEBUG: DATABASE_URI =", repr(os.getenv("DATABASE_URI")))
 
 if not AZURE_OPENAI_API_KEY:
     logger.critical("Missing required environment variable: AZURE_OPENAI_API_KEY. LLM features will fail.")
