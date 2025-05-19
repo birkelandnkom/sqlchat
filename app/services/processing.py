@@ -188,12 +188,19 @@ def get_visualization_suggestion(df: pd.DataFrame) -> dict | None:
     logger.info("Ber LLM om visualiseringsforslag...")
     try:
         response = llm_instance.invoke(prompt)
-        
+        logger.debug(response)
+
         content_str = response.content if hasattr(response, 'content') else str(response)
-        
+        logger.debug(content_str)
+
+
+
         logger.debug(f"LLM-svar for visualisering: {content_str}")
 
+        logger.debug(ast.literal_eval(content_str))
+
         json_block_match = ast.literal_eval(content_str)
+
         if isinstance(json_block_match, dict):
             suggestion = json_block_match
         else:

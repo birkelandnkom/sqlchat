@@ -6,9 +6,9 @@ logger = logging.getLogger(__name__)
 
 
 llm = AzureChatOpenAI(
-    model='o3-mini',
-    api_version="2025-01-01-preview",
-    timeout=None,
+    model='gpt-4.1',
+    api_version="2024-12-01-preview",
+    timeout=60,
 )
 
 logger.info('LLM client initialisert using base: %s', AZURE_OPENAI_ENDPOINT)
