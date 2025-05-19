@@ -8,13 +8,13 @@ GCO2E_PER_HOUR_LED_10W = 0.01 * 19
 def get_gco2e_equivalence_text(gco2e_value: float) -> str | None:
     """
     Genererer en tekst som setter gCO₂e-verdien i perspektiv med bruk av en 10W LED-pære.
-    Velger en passende tidsenhet (sekunder, minutter, timer) basert på størrelsen på gCO₂e-verdien.
+    Velger en passende tidsenhet (sekunder, minutter, timer) basert på størrelsen på gco2e_value.
 
     Args:
         gco2e_value (float): Mengden gCO₂e som skal konverteres.
 
     Returns:
-        str | None: En formatert streng med ekvivalensen, eller None hvis verdien er for liten.
+        str | None: eller None hvis verdien er for liten.
     """
     if gco2e_value <= 0:
         return None
@@ -37,17 +37,15 @@ def get_gco2e_equivalence_text(gco2e_value: float) -> str | None:
 
 def render_sidebar(logo_path: str | None = None):
     """
-    Renderer sidepanelet for Streamlit-applikasjonen.
+    Sidepanelet for Streamlit-applikasjonen.
 
     Viser logo hvis `logo_path` er gyldig.
     Viser informasjon om innlogget bruker, øktens totale tokenforbruk,
-    og estimert gCO₂e-utslipp med en tekstlig ekvivalens.
-    Hvis ingen tokens er brukt, vises en alternativ melding for gCO₂e.
-    Inkluderer også en hjelpetekst for hvordan chatboten brukes og
-    informasjon om datakilder og modell.
+    og estimert gCO₂e-utslipp.
+    Hvis ingen tokens er brukt, vises en alt. melding.
 
     Args:
-        logo_path (str | None): Valgfri sti til en logofil som skal vises øverst i sidepanelet.
+        logo_path (str | None): Logofil som skal vises i sidebar.
     """
     if logo_path:
         if os.path.exists(logo_path):

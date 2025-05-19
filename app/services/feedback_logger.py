@@ -12,10 +12,10 @@ logger = logging.getLogger(__name__)
 
 def log_feedback_to_file(feedback_data: dict):
     """
-    Writes a given feedback entry to the JSONL log file.
+    Skriver feedback til JSON lines.
 
     Args:
-        feedback_data (dict): The dictionary containing feedback information.
+        feedback_data (dict): Dict med feedback info.
     """
     try:
         if not os.path.exists(FEEDBACK_LOG_DIR):
@@ -31,8 +31,7 @@ def log_feedback_to_file(feedback_data: dict):
 
 def process_all_feedback():
     """
-    Processes all feedback submitted in the current session.
-    Logs both positive (thumbs up) and negative (thumbs down) feedback.
+    Prosesserer all feedback, logger både negative og positive tilbakemeldinger.
     """
     if "messages" not in st.session_state or not st.session_state.messages:
         return

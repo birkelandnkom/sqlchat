@@ -50,6 +50,6 @@ def check_password() -> bool:
                     st.rerun()
                 else:
                     st.session_state["password_correct"] = False
-                    st.error("😕 Brukernavn eller passord er feil.")
+                    st.error("Brukernavn eller passord er feil.")
             
     return False

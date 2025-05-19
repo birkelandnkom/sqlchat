@@ -8,7 +8,6 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from services.auth import check_password
 from services.processing import get_agent
-# Use the enhanced sidebar from your updated file
 from components.sidebar import render_sidebar 
 from components.chat_interface import display_messages, handle_user_input, process_agent_interaction
 from services.feedback_logger import process_all_feedback
@@ -28,8 +27,7 @@ LOGO_SIDEBAR_PATH = os.path.join(PROJECT_ROOT, "public", "logo_wide_text.png")
 
 def initialize_session_state():
     """
-    Initializes necessary keys in Streamlit's session state.
-    (Content from your existing app.py)
+    Init av nødvendige streamlit session states.
     """
     defaults = {
         "agent": None,
@@ -47,8 +45,8 @@ def initialize_session_state():
 
 def chatbot_page_main_content():
     """
-    Defines the content for the main chatbot page.
-    This function will be registered as a page with st.navigation.
+    Main content for chatbotten.
+    Funksjonen lager en st.page som brukes som hovedside.
     """
     
     display_messages()

@@ -17,13 +17,12 @@ def get_agent():
     """
     Bygger og returnerer LangChain SQL-agenten.
 
-    Bruker Streamlits mellomlagring (@st.cache_resource) for å sikre at agenten
-    kun bygges én gang per sesjon. Logger informasjon om byggeprosessen
-    og håndterer potensielle feil.
+    Bruker Streamlits cache (@st.cache_resource) for å sikre at agenten
+    kun bygges én gang per session. 
 
     Returns:
-        AgentExecutor | None: Den initialiserte LangChain agent executoren,
-                              eller None hvis byggingen feiler.
+        AgentExecutor | None: Langchain agent executoren,
+                              eller None ved error.
     """
     logger.info("Attempting to build agent...")
     try:
@@ -37,21 +36,21 @@ def get_agent():
 
 def process_sql_to_dataframe(sql_query: str, original_agent_text: str) -> tuple[str, pd.DataFrame | None]:
     """
-    Utfører en gitt SQL-spørring mot databasen og forsøker å konvertere resultatet
+    Utfører en SQL-spørring mot databasen og prøver å konvertere resultatet
     til en Pandas DataFrame.
 
     Args:
-        sql_query (str): SQL-spørringen som skal utføres.
+        sql_query (str): SQL-spørringen .
         original_agent_text (str): Den opprinnelige teksten fra agenten, brukt som
                                    en fallback-melding hvis DataFrame-konvertering feiler
-                                   eller hvis det ikke er noe tabulært resultat.
+                                   eller hvis det ikke er noe resultat.
 
     Returns:
         tuple[str, pd.DataFrame | None]: En tuple som inneholder:
             - final_output_text (str): En melding som beskriver resultatet,
                                        eller selve dataene hvis de ikke er tabulære.
-            - df (pd.DataFrame | None): Den resulterende Pandas DataFrame hvis vellykket,
-                                        ellers None.
+            - df (pd.DataFrame | None): Den resulterende Pandas DataFrame,
+                                        None ved error.
     """
     df = None
     final_output_text = original_agent_text
@@ -121,10 +120,10 @@ def process_sql_to_dataframe(sql_query: str, original_agent_text: str) -> tuple[
 
 def get_visualization_suggestion(df: pd.DataFrame) -> dict | None:
     """
-    Ber en LLM om å foreslå en passende Streamlit-visualisering for den gitte DataFrame.
+    Ber en LLM om å foreslå en passende visualisering.
 
     Args:
-        df (pd.DataFrame): DataFrame som skal visualiseres.
+        df (pd.DataFrame): df som skal visualiseres.
 
     Returns:
         dict | None: En dictionary med forslag til 'chart_type' og 'params' hvis vellykket,
