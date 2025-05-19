@@ -2,7 +2,7 @@ from langchain_community.agent_toolkits import create_sql_agent
 from langchain.agents import AgentExecutor
 from langchain.agents.agent_types import AgentType
 from backend.llm_client import llm
-from backend.db_client import db
+from backend.db_client import toolkit
 import logging
 
 logger = logging.getLogger(__name__)
@@ -13,7 +13,7 @@ def build_agent() -> AgentExecutor:
     try:
         raw_agent = create_sql_agent(
         llm=llm,
-        db=db,
+        toolkit=toolkit,
         agent_type="zero-shot-react-description",
         verbose=False,
         top_k=1000,
