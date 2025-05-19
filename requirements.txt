@@ -1,11 +1,12 @@
-# Core packages
-pandas
-python-dotenv
-openai
 streamlit
-
-# LangChain and related
+pandas
+numpy
+Pillow
+altair
+python-dotenv
 langchain
 langchain-community
 langchain-openai
-
+langchain-core
+SQLAlchemy
+psycopg2-binary
