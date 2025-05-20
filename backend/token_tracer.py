@@ -9,10 +9,6 @@ from langchain_core.messages import AIMessage
 logger = logging.getLogger(__name__)
 
 class TokenUsageCallbackHandler(BaseCallbackHandler):
-    """
-    A callback handler to track token usage and execution steps in LangChain.
-    Handles potential NoneType for serialized objects in chain/tool/agent events.
-    """
     def __init__(self) -> None:
         super().__init__()
         self.total_tokens_used: int = 0
@@ -21,7 +17,7 @@ class TokenUsageCallbackHandler(BaseCallbackHandler):
         self.successful_llm_requests: int = 0
         self.llm_errors: int = 0
         self.steps: List[Dict[str, Any]] = []
-        self._current_chain_ids: List[UUID] = [] 
+        self._current_chain_ids: List[UUID] = []
 
     def on_llm_start(
         self,
@@ -34,7 +30,6 @@ class TokenUsageCallbackHandler(BaseCallbackHandler):
         metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
-        """Run when LLM starts running."""
         llm_type = serialized.get("id", ["<unknown_llm>"])[-1] if serialized and serialized.get("id") else "<unknown_llm>"
         logger.info(f"LLM Start (Run ID: {run_id}, Type: {llm_type})")
         self.steps.append({
@@ -52,7 +47,6 @@ class TokenUsageCallbackHandler(BaseCallbackHandler):
         parent_run_id: Optional[UUID] = None,
         **kwargs: Any,
     ) -> None:
-        """Run when LLM ends running."""
         self.successful_llm_requests += 1
         step_total_tokens = 0
         step_prompt_tokens = 0
@@ -90,7 +84,6 @@ class TokenUsageCallbackHandler(BaseCallbackHandler):
                 step_total_tokens = int(token_usage_data)
                 token_info_source = "llm_output.token_usage (total only)"
 
-
         if step_total_tokens > 0:
             self.prompt_tokens_used += step_prompt_tokens
             self.completion_tokens_used += step_completion_tokens
@@ -110,6 +103,19 @@ class TokenUsageCallbackHandler(BaseCallbackHandler):
                  warning_msg += "llm_output.token_usage was present but empty. "
             warning_msg += "Token counts may be incomplete. Check LLM provider's response structure."
             logger.info(warning_msg)
+
+            logger.warning(f"LLM End (Run ID: {run_id}). Still no tokens. Full LLM Output: {response.llm_output}")
+            if hasattr(response, 'response_metadata'):
+                logger.warning(f"LLM End (Run ID: {run_id}). Overall Response Metadata: {response.response_metadata}")
+
+            for gen_list_idx, gen_list_item in enumerate(response.generations):
+                for gen_idx, gen_item in enumerate(gen_list_item):
+                    if isinstance(gen_item, ChatGeneration) and hasattr(gen_item, 'message'):
+                        logger.warning(f"LLM End (Run ID: {run_id}). Generation {gen_list_idx}-{gen_idx} Message: {vars(gen_item.message)}")
+                        if hasattr(gen_item.message, 'additional_kwargs'):
+                            logger.warning(f"LLM End (Run ID: {run_id}). Generation {gen_list_idx}-{gen_idx} Message additional_kwargs: {gen_item.message.additional_kwargs}")
+                        if hasattr(gen_item.message, 'response_metadata'):
+                            logger.warning(f"LLM End (Run ID: {run_id}). Generation {gen_list_idx}-{gen_idx} Message response_metadata: {gen_item.message.response_metadata}")
 
 
         logger.info(
@@ -340,4 +346,3 @@ class TokenUsageCallbackHandler(BaseCallbackHandler):
         self.steps = []
         self._current_chain_ids = []
         logger.info("TokenUsageCallbackHandler has been reset.")
-
