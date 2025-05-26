@@ -14,8 +14,8 @@ if not AZURE_OPENAI_API_KEY:
     logger.critical("Missing required environment variable: AZURE_OPENAI_API_KEY. LLM features will fail.")
 
 
-DATABASE_URI = os.getenv('DATABASE_URI', r"sqlite:///chinook.db").strip()
-if DATABASE_URI == 'sqlite:///chinook.db':
+DATABASE_URI = os.getenv('DATABASE_URI', r"sqlite:///data-ekom.db").strip()
+if DATABASE_URI == 'sqlite:///data-ekom.db':
     logger.warning("Environment variable DATABASE_URI not set. Using default: %s", DATABASE_URI)
 elif not DATABASE_URI:
     logger.critical("Missing required environment variable: DATABASE_URI and no default set.")

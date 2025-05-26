@@ -8,9 +8,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 TABLES = [
-    'employees', 'customers', 'invoices', 'invoice_items',
-    'artists', 'albums', 'media_types', 'genres',
-    'tracks', 'playlists', 'playlist_track'
+    'ekom', 'femsiffer'
 ]
 
 try:
